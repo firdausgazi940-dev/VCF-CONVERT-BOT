@@ -113,21 +113,27 @@ async def process_conversion(client, message):
     await message.reply_text("✅ কনভারশন সম্পন্ন হয়েছে!")
 # --- পাইথন ৩.১৪ এর জন্য চূড়ান্ত সমাধান ---
 async def main():
-    async with app:
-        print("Bot is successfully running...")
-        from pyrogram.methods.utilities.idle import idle
-        await idle()
+    try:
+        async with app:
+            print("Bot is successfully running...")
+            from pyrogram.methods.utilities.idle import idle
+            await idle()
+    except Exception as e:
+        print(f"Error: {e}")
 
 if __name__ == "__main__":
     import asyncio
     try:
-        # নতুন লুপ তৈরি করে বোট রান করা
-        loop = asyncio.new_event_loop()
-        asyncio.set_event_loop(loop)
+        # বর্তমান লুপ পাওয়ার চেষ্টা করবে, না পেলে নতুন লুপ তৈরি করবে
+        try:
+            loop = asyncio.get_event_loop()
+        except RuntimeError:
+            loop = asyncio.new_event_loop()
+            asyncio.set_event_loop(loop)
+        
         loop.run_until_complete(main())
     except KeyboardInterrupt:
         pass
-
 
 
 
