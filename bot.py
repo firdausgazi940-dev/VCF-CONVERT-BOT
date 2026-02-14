@@ -24,6 +24,9 @@ bot_token = os.environ.get("BOT_TOKEN", "8338204876:AAG8Y3F30W115DyG3HkwvTRGkbHa
 
 app = Client("vcf_pro_bot", api_id=api_id, api_hash=api_hash, bot_token=bot_token)
 
+# আপনার তৈরি করা ফটোর ডাইরেক্ট লিংক এখানে দিন
+START_PHOTO = "https://i.ibb.co/v4m3S3X/image.png" 
+
 user_data = {}
 admin_navy_data = {}
 
@@ -42,7 +45,23 @@ main_menu = ReplyKeyboardMarkup(
 
 @app.on_message(filters.command("start"))
 async def start(client, message):
-    await message.reply_text("👋 স্বাগতম! VCF কনভার্টার বোটে।\nকাজ শুরু করতে মেনু থেকে **/to_vcf** সিলেক্ট করুন।", reply_markup=main_menu)
+    welcome_text = (
+        "👋 **স্বাগতম! আমি VCF কনভার্টার বোট।**\n\n"
+        "👤 **Owner:** `AMG ABDUL`\n"
+        "🆔 **Username:** @Helllo68\n"
+        "━━━━━━━━━━━━━━━━━━\n"
+        "কাজ শুরু করতে নিচের মেনু থেকে অপশন বেছে নিন।"
+    )
+    try:
+        # ফটোসহ স্টার্ট মেসেজ
+        await message.reply_photo(
+            photo=START_PHOTO,
+            caption=welcome_text,
+            reply_markup=main_menu
+        )
+    except:
+        # ফটোতে সমস্যা থাকলে শুধু টেক্সট পাঠাবে
+        await message.reply_text(welcome_text, reply_markup=main_menu)
 
 @app.on_message(filters.command("to_vcf"))
 async def ask_file(client, message):
@@ -72,12 +91,12 @@ async def admin_navy_start(client, message):
     admin_navy_data[uid] = {"step": 1}
     await message.reply_text("👤 অ্যাডমিন নম্বর দিন:", reply_markup=ForceReply(True))
 
-# --- ৪. রিপ্লাই হ্যান্ডলিং (সব লজিক এখানে) ---
+# --- ৪. রিপ্লাই হ্যান্ডলিং ---
 @app.on_message(filters.reply & filters.text)
 async def handle_replies(client, message):
     uid = message.from_user.id
     
-    # ১. ফাইল টু VCF কনভার্ট লজিক
+    # ফাইল টু VCF কনভার্ট লজিক
     if uid in user_data:
         data = user_data[uid]
         if data['step'] == 'ctc_name':
@@ -132,7 +151,7 @@ async def handle_replies(client, message):
                 await message.reply_text(f"❌ ভুল হয়েছে: {e}")
             return
 
-    # ২. অ্যাডমিন নেভি রিপ্লাই লজিক (যা কাজ করছিল না)
+    # অ্যাডমিন নেভি রিপ্লাই লজিক
     if uid in admin_navy_data:
         data = admin_navy_data[uid]
         step = data["step"]
@@ -155,7 +174,6 @@ async def handle_replies(client, message):
             await message.reply_text("📁 ফাইলের নাম কী হবে?", reply_markup=ForceReply(True))
         elif step == 5:
             file_name = message.text
-            # VCF তৈরি
             vcf_content = f"BEGIN:VCARD\nVERSION:3.0\nFN:{data['admin_name']}\nTEL;TYPE=CELL:{data['admin_no']}\nEND:VCARD\n"
             navy_list = data['navy_no'].replace('\n', ' ').split()
             for i, num in enumerate(navy_list):
