@@ -1,2 +1,0 @@
-# VCF-CONVERT-BOT
-Yes
