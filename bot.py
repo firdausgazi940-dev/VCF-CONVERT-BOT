@@ -112,20 +112,11 @@ async def process_conversion(client, message):
     del user_data[uid]
     await message.reply_text("✅ কনভারশন সম্পন্ন হয়েছে!")
 
-# --- সমাধান অংশ: Event Loop Error Fix ---
-async def main():
-    async with app:
-        print("Bot is successfully running...")
-        from pyrogram.methods.utilities.idle import idle
-        await idle()
-
+# ফাইলের একদম শেষে শুধু এইটুকু থাকবে
 if __name__ == "__main__":
-    try:
-        loop = asyncio.get_event_loop()
-        loop.run_until_complete(main())
-    except RuntimeError:
-        loop = asyncio.new_event_loop()
-        asyncio.set_event_loop(loop)
-        loop.run_until_complete(main())
+    print("Bot is starting...")
+    app.run()
+
+
 
 
