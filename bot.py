@@ -111,11 +111,23 @@ async def process_conversion(client, message):
     os.remove(input_file)
     del user_data[uid]
     await message.reply_text("✅ কনভারশন সম্পন্ন হয়েছে!")
+# --- পাইথন ৩.১৪ এর জন্য চূড়ান্ত সমাধান ---
+async def main():
+    async with app:
+        print("Bot is successfully running...")
+        from pyrogram.methods.utilities.idle import idle
+        await idle()
 
-# ফাইলের একদম শেষে শুধু এইটুকু থাকবে
 if __name__ == "__main__":
-    print("Bot is starting...")
-    app.run()
+    import asyncio
+    try:
+        # নতুন লুপ তৈরি করে বোট রান করা
+        loop = asyncio.new_event_loop()
+        asyncio.set_event_loop(loop)
+        loop.run_until_complete(main())
+    except KeyboardInterrupt:
+        pass
+
 
 
 
