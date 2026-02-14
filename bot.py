@@ -14,7 +14,6 @@ def ping():
     return "Bot is Alive and Running!", 200
 
 def run_server():
-    # Render নিজে থেকেই একটি PORT এনভায়রনমেন্ট ভেরিয়েবল দেয়, না থাকলে 8080 ব্যবহার হবে
     port = int(os.environ.get("PORT", 8080))
     server.run(host="0.0.0.0", port=port)
 
@@ -44,7 +43,7 @@ async def set_bot_commands(client):
     commands = [
         BotCommand("start", "মূল মেনু"),
         BotCommand("to_vcf", "ফাইল থেকে VCF"),
-        BotCommand("admin", "Admin Navy ফিচার"),
+        BotCommand("admin", "অ্যাডমিন নেভি ফিচার"),
         BotCommand("help", "সহায়তা")
     ]
     await client.set_bot_commands(commands)
@@ -53,12 +52,12 @@ async def set_bot_commands(client):
 async def start(client, message):
     await message.reply_text("✅ বোটটি সফলভাবে সচল হয়েছে এবং লাইভ আছে!", reply_markup=main_menu)
 
-# --- Admin Navy ফিচার ---
+# --- অ্যাডমিন নেভি ফিচার (বাংলায় অনুবাদকৃত) ---
 @app.on_message(filters.command("admin"))
 async def admin_navy_start(client, message):
     uid = message.from_user.id
     admin_navy_data[uid] = {"step": 1}
-    await message.reply_text("👤 Masukkan nomor admin:", reply_markup=ForceReply(True))
+    await message.reply_text("👤 অ্যাডমিন নম্বর দিন:", reply_markup=ForceReply(True))
 
 # --- ফাইল টু VCF ফিচার ---
 @app.on_message(filters.command("to_vcf"))
@@ -83,26 +82,54 @@ async def start_done(client, message):
 async def handle_replies(client, message):
     uid = message.from_user.id
     
-    # ১. Admin Navy লজিক
+    # ১. সাধারণ ফাইল টু VCF লজিক (যা আগে কাজ করছিল না)
+    if uid in user_data and user_data[uid]['step'] == 1:
+        contact_name = message.text
+        file_path = user_data[uid]['file_path']
+        await message.reply_text(f"⏳ '{contact_name}' নামে কনভার্ট করা হচ্ছে...")
+
+        try:
+            numbers = []
+            if file_path.endswith('.xlsx'):
+                df = pd.read_excel(file_path)
+                numbers = df.iloc[:, 0].astype(str).tolist()
+            else:
+                with open(file_path, 'r') as f:
+                    numbers = f.read().splitlines()
+
+            vcf_path = f"{contact_name}.vcf"
+            with open(vcf_path, "w", encoding='utf-8') as f:
+                for i, num in enumerate(numbers):
+                    f.write(f"BEGIN:VCARD\nVERSION:3.0\nFN:{contact_name} {i+1}\nTEL;TYPE=CELL:{num}\nEND:VCARD\n")
+            
+            await message.reply_document(vcf_path, caption="✅ কনভার্ট সম্পন্ন হয়েছে!")
+            os.remove(vcf_path)
+            os.remove(file_path)
+            del user_data[uid]
+        except Exception as e:
+            await message.reply_text(f"❌ এরর: {str(e)}")
+        return
+
+    # ২. অ্যাডমিন নেভি লজিক (বাংলা ভাষা)
     if uid in admin_navy_data:
         data = admin_navy_data[uid]
         step = data["step"]
         if step == 1:
             data["admin_no"] = message.text
             data["step"] = 2
-            await message.reply_text("📝 Masukkan nama admin:", reply_markup=ForceReply(True))
+            await message.reply_text("📝 অ্যাডমিন নাম দিন:", reply_markup=ForceReply(True))
         elif step == 2:
             data["admin_name"] = message.text
             data["step"] = 3
-            await message.reply_text("🚢 Masukkan nomor navy:", reply_markup=ForceReply(True))
+            await message.reply_text("🚢 নেভি নম্বর দিন:", reply_markup=ForceReply(True))
         elif step == 3:
             data["navy_no"] = message.text
             data["step"] = 4
-            await message.reply_text("📝 Masukkan nama navy:", reply_markup=ForceReply(True))
+            await message.reply_text("📝 নেভি নাম দিন:", reply_markup=ForceReply(True))
         elif step == 4:
             data["navy_name"] = message.text
             data["step"] = 5
-            await message.reply_text("📁 Masukkan nama file:", reply_markup=ForceReply(True))
+            await message.reply_text("📁 ফাইলের নাম কী হবে?", reply_markup=ForceReply(True))
         elif step == 5:
             file_name = message.text
             vcf_content = f"BEGIN:VCARD\nVERSION:3.0\nFN:{data['admin_name']}\nTEL;TYPE=CELL:{data['admin_no']}\nEND:VCARD\n"
@@ -111,7 +138,7 @@ async def handle_replies(client, message):
                 vcf_content += f"BEGIN:VCARD\nVERSION:3.0\nFN:{data['navy_name']} {i+1}\nTEL;TYPE=CELL:{num}\nEND:VCARD\n"
             vcf_path = f"{file_name}.vcf"
             with open(vcf_path, "w", encoding='utf-8') as f: f.write(vcf_content)
-            await message.reply_document(vcf_path, caption="✅ File berhasil dikirim!")
+            await message.reply_document(vcf_path, caption="✅ ফাইল সফলভাবে পাঠানো হয়েছে!")
             os.remove(vcf_path)
             del admin_navy_data[uid]
         return
@@ -119,15 +146,12 @@ async def handle_replies(client, message):
 async def main():
     async with app:
         await set_bot_commands(app)
-        print("বোট চালু হয়েছে এবং পোর্ট স্ক্যানার সচল আছে...")
+        print("বোট চালু হয়েছে...")
         from pyrogram.methods.utilities.idle import idle
         await idle()
 
 if __name__ == "__main__":
-    # ১. প্রথমে Flask সার্ভারকে আলাদা একটি থ্রেডে চালু করছি
     threading.Thread(target=run_server, daemon=True).start()
-    
-    # ২. এরপর বোটের মেইন asyncio লুপ চালু করছি
     try:
         loop = asyncio.get_event_loop()
         loop.run_until_complete(main())
