@@ -6,7 +6,7 @@ from flask import Flask
 from pyrogram import Client, filters
 from pyrogram.types import ReplyKeyboardMarkup, ForceReply
 
-# --- ১. Flask Server (Render এর জন্য) ---
+# --- ১. Flask Server ---
 server = Flask(__name__)
 
 @server.route('/')
@@ -24,8 +24,8 @@ bot_token = os.environ.get("BOT_TOKEN", "8338204876:AAG8Y3F30W115DyG3HkwvTRGkbHa
 
 app = Client("vcf_pro_bot", api_id=api_id, api_hash=api_hash, bot_token=bot_token)
 
-# আপনার তৈরি করা ফটোর ডাইরেক্ট লিংক এখানে দিন
-START_PHOTO = "https://i.ibb.co/v4m3S3X/image.png" 
+# আপনার QR যুক্ত স্পেশাল ফটোর সরাসরি লিংক
+START_PHOTO = "https://graph.org/file/9970860538a7985472855.jpg" 
 
 user_data = {}
 admin_navy_data = {}
@@ -59,9 +59,11 @@ async def start(client, message):
             caption=welcome_text,
             reply_markup=main_menu
         )
-    except:
-        # ফটোতে সমস্যা থাকলে শুধু টেক্সট পাঠাবে
+    except Exception as e:
+        # ফটো না আসলে শুধু টেক্সট পাঠাবে
         await message.reply_text(welcome_text, reply_markup=main_menu)
+
+# ... (বাকি সব ফাংশন আগের মতোই থাকবে) ...
 
 @app.on_message(filters.command("to_vcf"))
 async def ask_file(client, message):
@@ -84,19 +86,16 @@ async def done_command(client, message):
         user_data[uid]['step'] = 'ctc_name'
         await message.reply_text("📝 কন্টাক্ট সেভ করার জন্য একটি **নাম** দিন (যেমন: MyContact):", reply_markup=ForceReply(True))
 
-# --- অ্যাডমিন নেভি ফিচার শুরু ---
 @app.on_message(filters.command("admin"))
 async def admin_navy_start(client, message):
     uid = message.from_user.id
     admin_navy_data[uid] = {"step": 1}
     await message.reply_text("👤 অ্যাডমিন নম্বর দিন:", reply_markup=ForceReply(True))
 
-# --- ৪. রিপ্লাই হ্যান্ডলিং ---
 @app.on_message(filters.reply & filters.text)
 async def handle_replies(client, message):
     uid = message.from_user.id
     
-    # ফাইল টু VCF কনভার্ট লজিক
     if uid in user_data:
         data = user_data[uid]
         if data['step'] == 'ctc_name':
@@ -104,21 +103,17 @@ async def handle_replies(client, message):
             data['step'] = 'file_name'
             await message.reply_text("💾 এবার ফাইলের জন্য একটি নাম দিন (যেমন: Result):", reply_markup=ForceReply(True))
             return
-        
         elif data['step'] == 'file_name':
             data['file_prefix'] = message.text
             data['step'] = 'limit'
             await message.reply_text("🔢 প্রতি ফাইলে কতগুলো কন্টাক্ট থাকবে? (সবগুলোর জন্য 'all' লিখুন):", reply_markup=ForceReply(True))
             return
-
         elif data['step'] == 'limit':
             limit_text = message.text
             input_file = data['file_path']
             ctc_name = data['ctc_name']
             file_prefix = data['file_prefix']
-            
             await message.reply_text("⏳ ফাইল প্রসেসিং হচ্ছে...")
-
             try:
                 contacts = []
                 if input_file.endswith('.txt'):
@@ -127,23 +122,18 @@ async def handle_replies(client, message):
                 else:
                     df = pd.read_excel(input_file)
                     contacts = df.iloc[:, 0].astype(str).tolist()
-
                 total = len(contacts)
                 limit = total if limit_text.lower() == 'all' else int(limit_text)
-                
                 count = 0; file_num = 1; vcf_buffer = ""
-                
                 for i, phone in enumerate(contacts):
                     vcf_buffer += f"BEGIN:VCARD\nVERSION:3.0\nFN:{ctc_name} {i+1}\nTEL;TYPE=CELL:{phone}\nEND:VCARD\n"
                     count += 1
-                    
                     if count == limit or i == total - 1:
                         vcf_name = f"{file_prefix}_{file_num}.vcf"
                         with open(vcf_name, "w", encoding='utf-8') as f: f.write(vcf_buffer)
                         await message.reply_document(vcf_name, caption=f"📄 ফাইল নং: {file_num}\n✅ কন্টাক্ট: {count}")
                         os.remove(vcf_name)
                         vcf_buffer = ""; count = 0; file_num += 1
-
                 os.remove(input_file)
                 del user_data[uid]
                 await message.reply_text("✅ কনভারশন সম্পন্ন হয়েছে!")
@@ -151,11 +141,9 @@ async def handle_replies(client, message):
                 await message.reply_text(f"❌ ভুল হয়েছে: {e}")
             return
 
-    # অ্যাডমিন নেভি রিপ্লাই লজিক
     if uid in admin_navy_data:
         data = admin_navy_data[uid]
         step = data["step"]
-        
         if step == 1:
             data["admin_no"] = message.text
             data["step"] = 2
@@ -178,7 +166,6 @@ async def handle_replies(client, message):
             navy_list = data['navy_no'].replace('\n', ' ').split()
             for i, num in enumerate(navy_list):
                 vcf_content += f"BEGIN:VCARD\nVERSION:3.0\nFN:{data['navy_name']} {i+1}\nTEL;TYPE=CELL:{num}\nEND:VCARD\n"
-            
             vcf_path = f"{file_name}.vcf"
             with open(vcf_path, "w", encoding='utf-8') as f: f.write(vcf_content)
             await message.reply_document(vcf_path, caption="✅ অ্যাডমিন নেভি ফাইল সফলভাবে তৈরি হয়েছে!")
@@ -186,7 +173,6 @@ async def handle_replies(client, message):
             del admin_navy_data[uid]
         return
 
-# --- বোট রান ---
 async def main():
     async with app:
         print("Bot is Alive!")
