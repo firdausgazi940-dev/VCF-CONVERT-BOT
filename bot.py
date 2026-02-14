@@ -112,18 +112,7 @@ async def process_conversion(client, message):
     del user_data[uid]
     await message.reply_text("✅ কনভারশন সম্পন্ন হয়েছে!")
 
-# --- পাইথন ৩.১৪ এর জন্য গ্যারান্টিড আধুনিক সমাধান ---
-async def start_bot():
-    async with app:
-        print("Bot is successfully running...")
-        from pyrogram.methods.utilities.idle import idle
-        await idle()
-
+# --- বোট রান করার অংশ ---
 if __name__ == "__main__":
-    try:
-        # asyncio.run() নিজে থেকেই নতুন লুপ তৈরি করে নেবে
-        asyncio.run(start_bot())
-    except KeyboardInterrupt:
-        pass
-    except Exception as e:
-        print(f"Error occurred: {e}")
+    print("Bot is starting on Python 3.10...")
+    app.run()
