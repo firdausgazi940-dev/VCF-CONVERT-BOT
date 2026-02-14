@@ -1,4 +1,6 @@
+
 import os
+import asyncio
 import pandas as pd
 from pyrogram import Client, filters
 from pyrogram.types import ReplyKeyboardMarkup, ForceReply
@@ -6,6 +8,7 @@ from pyrogram.types import ReplyKeyboardMarkup, ForceReply
 # ক্রেডেনশিয়াল সেটআপ
 api_id = 39509829
 api_hash = "e11187f10974a3416ddf2fc52101a7d9"
+# Render Environment Variable থেকে টোকেন নেবে
 bot_token = os.environ.get("BOT_TOKEN", "8338204876:AAG8Y3F30W115DyG3HkwvTRGkbHayGh43Ss")
 
 app = Client("vcf_pro_bot", api_id=api_id, api_hash=api_hash, bot_token=bot_token)
@@ -55,7 +58,6 @@ async def process_conversion(client, message):
     uid = message.from_user.id
     if uid not in user_data: return
 
-    # কন্টাক্ট নাম এবং ফাইল নাম সেটআপ
     if 'ctc_name' not in user_data[uid]:
         user_data[uid]['ctc_name'] = message.text
         await message.reply_text("💾 এবার ফাইলের জন্য একটি নাম দিন (যেমন: Injay):", reply_markup=ForceReply(True))
@@ -66,7 +68,6 @@ async def process_conversion(client, message):
         await message.reply_text("🔢 প্রতি ফাইলে কতগুলো কন্টাক্ট থাকবে? (যেমন: 200 অথবা সবগুলোর জন্য 'all'):", reply_markup=ForceReply(True))
         return
 
-    # কনভারশন শুরু
     limit_text = message.text
     ctc_name = user_data[uid]['ctc_name']
     file_prefix = user_data[uid]['file_name']
@@ -74,7 +75,6 @@ async def process_conversion(client, message):
 
     await message.reply_text("⏳ ফাইল প্রসেসিং হচ্ছে... দয়া করে অপেক্ষা করুন।")
 
-    # ডাটা রিড করা
     contacts = []
     if input_file.endswith('.txt'):
         with open(input_file, 'r', encoding='utf-8') as f:
@@ -83,10 +83,11 @@ async def process_conversion(client, message):
         df = pd.read_excel(input_file)
         contacts = df.iloc[:, 0].astype(str).tolist()
 
-    # লিমিট সেট করা
-    limit = len(contacts) if limit_text.lower() == 'all' else int(limit_text)
+    try:
+        limit = len(contacts) if limit_text.lower() == 'all' else int(limit_text)
+    except:
+        limit = len(contacts)
     
-    # VCF ফাইল তৈরি এবং সেন্ড করা
     count = 0
     file_num = 1
     vcf_buffer = ""
@@ -96,23 +97,35 @@ async def process_conversion(client, message):
         count += 1
         
         if count == limit or i == len(contacts) - 1:
-            vcf_name = f"{file_prefix} {file_num}.vcf"
+            vcf_name = f"{file_prefix}_{file_num}.vcf"
             with open(vcf_name, "w", encoding='utf-8') as f:
                 f.write(vcf_buffer)
             
             await message.reply_document(vcf_name)
             os.remove(vcf_name)
             
-            # রিসেট
             vcf_buffer = ""
             count = 0
             file_num += 1
 
-    # ক্লিনআপ
     os.remove(input_file)
     del user_data[uid]
     await message.reply_text("✅ কনভারশন সম্পন্ন হয়েছে!")
 
-app.run()
+# --- সমাধান অংশ: Event Loop Error Fix ---
+async def main():
+    async with app:
+        print("Bot is successfully running...")
+        from pyrogram.methods.utilities.idle import idle
+        await idle()
+
+if __name__ == "__main__":
+    try:
+        loop = asyncio.get_event_loop()
+        loop.run_until_complete(main())
+    except RuntimeError:
+        loop = asyncio.new_event_loop()
+        asyncio.set_event_loop(loop)
+        loop.run_until_complete(main())
 
 
