@@ -3,9 +3,9 @@ import asyncio
 import threading
 from flask import Flask
 from pyrogram import Client, filters
-from pyrogram.types import ReplyKeyboardMarkup, InlineKeyboardMarkup, InlineKeyboardButton
+from pyrogram.types import ReplyKeyboardMarkup, ForceReply, BotCommand
 
-# --- ১. Flask Server ---
+# --- ১. Flask Server (Render-এর জন্য) ---
 server = Flask(__name__)
 
 @server.route('/')
@@ -23,6 +23,11 @@ bot_token = os.environ.get("BOT_TOKEN", "8338204876:AAG8Y3F30W115DyG3HkwvTRGkbHa
 
 app = Client("vcf_pro_bot", api_id=api_id, api_hash=api_hash, bot_token=bot_token)
 
+# ডাটা স্টোরেজ
+user_data = {}
+admin_navy_data = {}
+
+# মেনু কিবোর্ড
 main_menu = ReplyKeyboardMarkup(
     [
         ["/to_vcf", "/to_txt", "/admin", "/manual"],
@@ -33,71 +38,103 @@ main_menu = ReplyKeyboardMarkup(
     resize_keyboard=True
 )
 
-# --- ৩. ভাষা সেটআপ ---
-
-@app.on_message(filters.command(["language", "lang"]))
-async def set_language(client, message):
-    keyboard = InlineKeyboardMarkup([
-        [InlineKeyboardButton("🇧🇩 বাংলা", callback_data="lang_bn")],
-        [InlineKeyboardButton("🇺🇸 English", callback_data="lang_en")],
-        [InlineKeyboardButton("🇮🇳 हिन्दी", callback_data="lang_hi")]
-    ])
-    await message.reply_text("✨ **Select Your Language** ✨\n\nনিচ থেকে আপনার ভাষা বেছে নিন:", reply_markup=keyboard)
-
-@app.on_callback_query(filters.regex("^lang_"))
-async def handle_language_selection(client, callback_query):
-    lang = callback_query.data.split("_")[1]
-    msgs = {
-        "bn": "✅ **সফল হয়েছে!** ভাষা: বাংলা।\nএখন আপনি যেকোনো ফাইল পাঠিয়ে কাজ শুরু করতে পারেন।",
-        "en": "✅ **Success!** Language: English.\nYou can now start by sending your files.",
-        "hi": "✅ **सफलता!** भाषा: हिन्दी।\nअब आप अपनी फाइलें भेजकर शुरू कर सकते हैं।"
-    }
-    await callback_query.edit_message_text(msgs[lang])
-
-# --- ৪. মেইন প্রসেস (পারমিশন রিমুভ করা হয়েছে) ---
+# --- ৩. কমান্ডস এবং স্টার্ট ---
+async def set_bot_commands(client):
+    commands = [
+        BotCommand("start", "মূল মেনু"),
+        BotCommand("to_vcf", "ফাইল থেকে VCF"),
+        BotCommand("admin", "Admin Navy ফিচার"),
+        BotCommand("help", "সহায়তা")
+    ]
+    await client.set_bot_commands(commands)
 
 @app.on_message(filters.command("start"))
 async def start(client, message):
-    # সুন্দর ওয়েলকাম মেসেজ ও জোকস
-    welcome_msg = (
+    welcome_joke = (
         f"🚀 **Welcome to VCF Pro Worker Bot!** 🚀\n"
         f"━━━━━━━━━━━━━━━━━━━━━━\n"
-        f"হ্যালো **{message.from_user.first_name}**, আমি আপনাকে VCF এবং TXT ফাইল ম্যানেজ করতে সাহায্য করব।\n\n"
-        f"💡 **একটি ছোট হাসি:**\n"
-        f"টিচার: বল্টু, বল তো 'পৃথিবী গোল'—এটার ইংরেজি কী?\n"
+        f"হ্যালো **{message.from_user.first_name}**, আমি আপনার ফাইল ম্যানেজ করতে রেডি।\n\n"
+        f"💡 **একটি মজার জোকস:**\n"
+        f"টিচার: বল্টু, বল তো 'পৃথিবী গোল'—এর ইংরেজি কী?\n"
         f"বল্টু: Sir, The Earth is Round.\n"
-        f"টিচার: গুড! এবার বল তো এটা কে আবিষ্কার করেছেন?\n"
+        f"টিচার: গুড! এবার বল এটা কে আবিষ্কার করেছেন?\n"
         f"বল্টু: স্যার, আমি তো করিনি, ফুটবল খেলতে গিয়ে গোল দিয়েছি শুধু! 😂⚽\n"
         f"━━━━━━━━━━━━━━━━━━━━━━\n"
-        f"🛠 **শুরু করতে নিচের বাটন ব্যবহার করুন অথবা ভাষা সেট করুন:** /language"
+        f"🛠 শুরু করতে নিচের বাটনগুলো ব্যবহার করুন।"
     )
-    # ফটো ছাড়াই টেক্সট পাঠানো হচ্ছে যাতে কোনো এরর না আসে
-    await message.reply_text(welcome_msg, reply_markup=main_menu)
+    await message.reply_text(welcome_joke, reply_markup=main_menu)
+
+# --- ৪. Admin Navy ফিচার (আপনার পুরনো লজিক) ---
+@app.on_message(filters.command("admin"))
+async def admin_navy_start(client, message):
+    uid = message.from_user.id
+    admin_navy_data[uid] = {"step": 1}
+    await message.reply_text("👤 Masukkan nomor admin:", reply_markup=ForceReply(True))
+
+# --- ৫. ফাইল টু VCF ফিচার ---
+@app.on_message(filters.command("to_vcf"))
+async def ask_file(client, message):
+    await message.reply_text("📩 দয়া করে আপনার কন্টাক্ট লিস্টের .txt অথবা .xlsx ফাইলটি পাঠান।")
 
 @app.on_message(filters.document)
 async def handle_document(client, message):
-    # এখানে পারমিশন চেক (check_access) সরিয়ে দেওয়া হয়েছে
-    await message.reply_text("⚙️ **ফাইল পাওয়া গেছে!** প্রসেসিং শুরু হচ্ছে, দয়া করে অপেক্ষা করুন...")
+    # পারমিশন ছাড়াই এখন ফাইল ডাউনলোড হবে
+    file_path = await message.download()
+    user_data[message.from_user.id] = {'file_path': file_path, 'step': 0}
+    await message.reply_text("⚙️ ফাইল পাওয়া গেছে! কনভার্ট শুরু করতে /done লিখুন।")
 
-@app.on_message(filters.command(["plan", "premium"]))
-async def show_plan(client, message):
-    plan_text = (
-        "🌟 **Premium Plans (Optional Support)** 🌟\n\n"
-        "বোটটি সবার জন্য উন্মুক্ত! তবে আপনি চাইলে আমাদের সাপোর্ট করতে পারেন।\n"
-        "💰 **Price:** ₹99 / $1.5\n"
-        "📸 স্ক্রিনশট দিন: @Helllo68\n\n"
-        "ধন্যবাদ আমাদের সাথে থাকার জন্য! ❤️"
-    )
-    await message.reply_text(plan_text)
+@app.on_message(filters.command("done"))
+async def start_done(client, message):
+    uid = message.from_user.id
+    if uid in user_data:
+        user_data[uid]['step'] = 1
+        await message.reply_text("📝 কন্টাক্ট সেভ করার জন্য একটি নাম দিন:", reply_markup=ForceReply(True))
+
+# --- ৬. রিপ্লাই হ্যান্ডলিং (আসল কনভার্টিং লজিক) ---
+@app.on_message(filters.reply & filters.text)
+async def handle_replies(client, message):
+    uid = message.from_user.id
+    
+    if uid in admin_navy_data:
+        data = admin_navy_data[uid]
+        step = data["step"]
+        if step == 1:
+            data["admin_no"] = message.text
+            data["step"] = 2
+            await message.reply_text("📝 Masukkan nama admin:", reply_markup=ForceReply(True))
+        elif step == 2:
+            data["admin_name"] = message.text
+            data["step"] = 3
+            await message.reply_text("🚢 Masukkan nomor navy:", reply_markup=ForceReply(True))
+        elif step == 3:
+            data["navy_no"] = message.text
+            data["step"] = 4
+            await message.reply_text("📝 Masukkan nama navy:", reply_markup=ForceReply(True))
+        elif step == 4:
+            data["navy_name"] = message.text
+            data["step"] = 5
+            await message.reply_text("📁 Masukkan nama file:", reply_markup=ForceReply(True))
+        elif step == 5:
+            file_name = message.text
+            vcf_content = f"BEGIN:VCARD\nVERSION:3.0\nFN:{data['admin_name']}\nTEL;TYPE=CELL:{data['admin_no']}\nEND:VCARD\n"
+            navy_list = data['navy_no'].replace('\n', ' ').split()
+            for i, num in enumerate(navy_list):
+                vcf_content += f"BEGIN:VCARD\nVERSION:3.0\nFN:{data['navy_name']} {i+1}\nTEL;TYPE=CELL:{num}\nEND:VCARD\n"
+            vcf_path = f"{file_name}.vcf"
+            with open(vcf_path, "w", encoding='utf-8') as f: f.write(vcf_content)
+            await message.reply_document(vcf_path, caption="✅ File সফলভাবে তৈরি হয়েছে!")
+            os.remove(vcf_path)
+            del admin_navy_data[uid]
 
 async def main():
     async with app:
-        print("Bot is Alive without Permissions!")
+        await set_bot_commands(app)
+        print("Bot is Alive with conversion logic!")
         from pyrogram.methods.utilities.idle import idle
         await idle()
 
 if __name__ == "__main__":
-    # Render পোর্ট বাইন্ডিং
+    # সার্ভার চালানো হচ্ছে যাতে Render-এ অফ না হয়
     threading.Thread(target=run_server, daemon=True).start()
     loop = asyncio.get_event_loop()
     loop.run_until_complete(main())
