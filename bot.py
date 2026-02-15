@@ -183,3 +183,40 @@ if __name__ == "__main__":
     threading.Thread(target=run_server, daemon=True).start()
     loop = asyncio.get_event_loop()
     loop.run_until_complete(main())
+# --- Multilingual Support System (BN/EN/HI) ---
+
+@bot.message_handler(commands=['language', 'start'])
+def set_language(message):
+    markup = telebot.types.InlineKeyboardMarkup()
+    btn_bn = telebot.types.InlineKeyboardButton("🇧🇩 বাংলা", callback_data="lang_bn")
+    btn_en = telebot.types.InlineKeyboardButton("🇺🇸 English", callback_data="lang_en")
+    btn_hi = telebot.types.InlineKeyboardButton("🇮🇳 हिन्दी", callback_data="lang_hi")
+    markup.add(btn_bn, btn_en, btn_hi)
+    
+    bot.reply_to(message, "Please select your language / আপনার ভাষা নির্বাচন করুন / अपनी भाषा चुनें:", reply_markup=markup)
+
+@bot.callback_query_handler(func=lambda call: call.data.startswith("lang_"))
+def handle_language_selection(call):
+    lang = call.data.split("_")[1]
+    
+    messages = {
+        "bn": "আপনার ভাষা সেট করা হয়েছে: **বাংলা**।\nফ্রি ট্রায়াল শুরু করতে VCF ফাইল পাঠান। প্রিমিয়ামের জন্য /plan লিখুন।",
+        "en": "Language set to: **English**.\nSend your VCF file for a free trial. Type /plan for Premium.",
+        "hi": "आपकी भाषा चुनी गई: **हिन्दी**।\nफ्री ट्रायल के लिए VCF फाइल भेजें। प्रीमियम के लिए /plan लिखें।"
+    }
+    
+    bot.answer_callback_query(call.id, "Success!")
+    bot.edit_message_text(messages[lang], call.message.chat.id, call.message.message_id, parse_mode='Markdown')
+
+# --- পেমেন্ট মেসেজ আপডেট (তিন ভাষায়) ---
+
+@bot.message_handler(commands=['plan', 'premium'])
+def multi_lang_premium(message):
+    premium_text = (
+        "🌟 **Premium Plans** 🌟\n\n"
+        "🇧🇩 **বাংলা:** আনলিমিটেড কনভার্ট করতে ₹99 পেমেন্ট করে স্ক্রিনশট দিন: @Helllo68\n\n"
+        "🇺🇸 **English:** Pay ₹99 for Unlimited access. Send screenshot to: @Helllo68\n\n"
+        "🇮🇳 **हिन्दी:** अनलिमिटेड कन्वर्ट के लिए ₹99 पे करें और स्क्रीनशॉट भेजें: @Helllo68\n\n"
+        "📸 **Pay with your QR Code**"
+    )
+    bot.reply_to(message, premium_text, parse_mode='Markdown')
