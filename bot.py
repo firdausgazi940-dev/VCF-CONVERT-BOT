@@ -1,13 +1,12 @@
 import os
 import asyncio
 import threading
-import pandas as pd
 import datetime
 from flask import Flask
 from pyrogram import Client, filters
-from pyrogram.types import ReplyKeyboardMarkup, ForceReply, InlineKeyboardMarkup, InlineKeyboardButton
+from pyrogram.types import ReplyKeyboardMarkup, InlineKeyboardMarkup, InlineKeyboardButton
 
-# --- ১. Flask Server ---
+# --- ১. Flask Server (Render এর জন্য পোর্ট আপডেট করা হয়েছে) ---
 server = Flask(__name__)
 
 @server.route('/')
@@ -15,7 +14,8 @@ def ping():
     return "Bot is Running!", 200
 
 def run_server():
-    port = int(os.environ.get("PORT", 8080))
+    # Render সাধারণত 10000 পোর্টে রান করে
+    port = int(os.environ.get("PORT", 10000))
     server.run(host="0.0.0.0", port=port)
 
 # --- ২. বোট ক্রেডেনশিয়াল ---
@@ -25,13 +25,11 @@ bot_token = os.environ.get("BOT_TOKEN", "8338204876:AAG8Y3F30W115DyG3HkwvTRGkbHa
 
 app = Client("vcf_pro_bot", api_id=api_id, api_hash=api_hash, bot_token=bot_token)
 
-START_PHOTO = "https://graph.org/file/9970860538a7985472855.jpg" 
+# নতুন কাজ করা ইমেজ লিঙ্ক (যাতে এরর না আসে)
+START_PHOTO = "https://i.postimg.cc/tTfHqf7s/Abdul-Matin-Gazi-QR.png" 
 
-# --- ৩. সাবস্ক্রিপশন ডাটাবেস (মেমোরিতে থাকবে) ---
+# --- ৩. সাবস্ক্রিপশন ডাটাবেস ---
 USER_SUBSCRIPTIONS = {} 
-
-user_data = {}
-admin_navy_data = {}
 
 main_menu = ReplyKeyboardMarkup(
     [
@@ -47,7 +45,8 @@ main_menu = ReplyKeyboardMarkup(
 async def check_access(user_id):
     today = datetime.date.today()
     if user_id in USER_SUBSCRIPTIONS:
-        expiry = datetime.datetime.strptime(USER_SUBSCRIPTIONS[user_id], '%Y-%m-%d').date()
+        expiry_str = USER_SUBSCRIPTIONS[user_id]
+        expiry = datetime.datetime.strptime(expiry_str, '%Y-%m-%d').date()
         if today <= expiry:
             return True
     return False
@@ -82,9 +81,10 @@ async def show_plan(client, message):
         "📸 পেমেন্ট করে স্ক্রিনশট দিন: @Helllo68\n\n"
         "--- মজার জোকস ---\n" + joke
     )
+    # এখানে আপনার নতুন এডিট করা QR কোডটি দেখা যাবে
     await message.reply_photo(photo=START_PHOTO, caption=plan_text)
 
-# অ্যাডমিন হিসেবে আপনি ইউজার যোগ করবেন: /add_user 12345678
+# অ্যাডমিন অ্যাড ইউজার কমান্ড
 @app.on_message(filters.command("add_user") & filters.user("Helllo68"))
 async def add_premium(client, message):
     try:
@@ -95,7 +95,7 @@ async def add_premium(client, message):
     except:
         await message.reply_text("Usage: /add_user USER_ID")
 
-# --- ৬. মেইন প্রসেস (অ্যাক্সেস চেক সহ) ---
+# --- ৬. মেইন প্রসেস ---
 
 @app.on_message(filters.command("start"))
 async def start(client, message):
@@ -106,12 +106,10 @@ async def start(client, message):
 async def handle_document(client, message):
     user_id = message.from_user.id
     if await check_access(user_id):
-        # আপনার কনভার্ট লজিক এখানে চলবে
         await message.reply_text("✅ Premium Active! Processing file...")
+        # এখানে আপনার কনভার্ট করার আসল লজিকগুলো যুক্ত করতে পারেন
     else:
         await message.reply_text("🚫 অ্যাক্সেস নেই! ১ মাসের সাবস্ক্রিপশন নিতে /plan দেখুন।")
-
-# ... [বাকি সব ফাংশন যা আপনার আগে ছিল] ...
 
 async def main():
     async with app:
@@ -120,6 +118,7 @@ async def main():
         await idle()
 
 if __name__ == "__main__":
+    # পোর্ট বাইন্ডিং ঠিক করার জন্য
     threading.Thread(target=run_server, daemon=True).start()
     loop = asyncio.get_event_loop()
     loop.run_until_complete(main())
