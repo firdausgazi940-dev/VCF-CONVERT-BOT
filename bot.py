@@ -1,11 +1,9 @@
-import os
-import asyncio
-import threading
+import os, asyncio, threading
 from flask import Flask
 from pyrogram import Client, filters
 from pyrogram.types import ReplyKeyboardMarkup, ForceReply
 
-# --- 1. Flask Server (To keep the bot alive on Render/Heroku) ---
+# --- 1. Flask Server (To keep the bot alive) ---
 server = Flask(__name__)
 @server.route('/')
 def ping(): return "Bot is Running!", 200
@@ -18,7 +16,9 @@ def run_server():
 api_id = 39509829
 api_hash = "e11187f10974a3416ddf2fc52101a7d9"
 bot_token = os.environ.get("BOT_TOKEN", "8338204876:AAG8Y3F30W115DyG3HkwvTRGkbHayGh43Ss")
-app = Client("vcf_pro_bot", api_id=api_id, api_hash=api_hash, bot_token=bot_token)
+
+# sleep_threshold added to handle FloodWait automatically
+app = Client("vcf_pro_bot", api_id=api_id, api_hash=api_hash, bot_token=bot_token, sleep_threshold=60)
 
 user_data = {}
 admin_navy_data = {}
@@ -70,7 +70,7 @@ async def handle_replies(client, message):
     uid = message.from_user.id
     text = message.text
 
-    # 1. Admin Navy Logic (Step-by-step)
+    # --- Admin Navy Logic ---
     if uid in admin_navy_data:
         step = admin_navy_data[uid]["step"]
         if step == 1:
@@ -88,7 +88,7 @@ async def handle_replies(client, message):
         elif step == 4:
             admin_navy_data[uid]["navy_name"] = text
             admin_navy_data[uid]["step"] = 5
-            await message.reply_text("📁 **What should be the File Name?** (without extension):", reply_markup=ForceReply(True))
+            await message.reply_text("📁 **What should be the File Name?**:", reply_markup=ForceReply(True))
         elif step == 5:
             data = admin_navy_data[uid]
             vcf_content = f"BEGIN:VCARD\nVERSION:3.0\nFN:{data['admin_name']}\nTEL;TYPE=CELL:{data['admin_no']}\nEND:VCARD\n"
@@ -102,7 +102,7 @@ async def handle_replies(client, message):
             del admin_navy_data[uid]
         return
 
-    # 2. Standard VCF Split Logic
+    # --- Standard VCF Split Logic ---
     if uid in user_data:
         step = user_data[uid]["step"]
         if step == 2:
@@ -112,13 +112,15 @@ async def handle_replies(client, message):
         elif step == 3:
             user_data[uid]['file_name'] = text
             user_data[uid]['step'] = 4
-            await message.reply_text("🔢 **How many contacts per file?**  reply_markup=ForceReply(True))
+            # FIXED SYNTAX ERROR HERE
+            await message.reply_text("🔢 **How many contacts per file?** (e.g., 1000):", reply_markup=ForceReply(True))
         elif step == 4:
             try:
                 limit = int(text)
                 contact_name = user_data[uid]['contact_name']
                 file_name = user_data[uid]['file_name']
                 file_path = user_data[uid]['file_path']
+                
                 with open(file_path, "r", encoding="utf-8") as f:
                     lines = [l.strip() for l in f.readlines() if l.strip()]
                 
@@ -135,6 +137,8 @@ async def handle_replies(client, message):
                         caption=f"📄 **File Name:** {file_name}\n✅ **Contact Name:** {contact_name}\n📦 **Part:** {part_no}\n👥 **Count:** {len(chunk)}"
                     )
                     os.remove(vcf_fn)
+                    # Added delay to prevent FloodWait
+                    await asyncio.sleep(1.5) 
                 
                 os.remove(file_path)
                 del user_data[uid]
