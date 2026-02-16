@@ -112,7 +112,6 @@ async def handle_replies(client, message):
         elif step == 3:
             user_data[uid]['file_name'] = text
             user_data[uid]['step'] = 4
-            # FIXED SYNTAX ERROR HERE
             await message.reply_text("🔢 **How many contacts per file?** (e.g., 1000):", reply_markup=ForceReply(True))
         elif step == 4:
             try:
@@ -137,8 +136,8 @@ async def handle_replies(client, message):
                         caption=f"📄 **File Name:** {file_name}\n✅ **Contact Name:** {contact_name}\n📦 **Part:** {part_no}\n👥 **Count:** {len(chunk)}"
                     )
                     os.remove(vcf_fn)
-                    # Added delay to prevent FloodWait
-                    await asyncio.sleep(1.5) 
+                    # বিরতি ১.৫ থেকে কমিয়ে ০.৮ সেকেন্ড করা হয়েছে
+                    await asyncio.sleep(0.8) 
                 
                 os.remove(file_path)
                 del user_data[uid]
