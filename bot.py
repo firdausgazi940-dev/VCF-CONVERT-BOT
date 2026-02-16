@@ -104,7 +104,7 @@ async def handle_replies(client, message):
         if step == 2:
             user_data[uid]['contact_name'] = text
             user_data[uid]['step'] = 3
-            await message.reply_text("🔢 **প্রতি ফাইলে কতগুলো কন্টাক্ট থাকবে?**\n(যেমন: 1000)", reply_markup=ForceReply(True))
+            await message.reply_text("🔢 **প্রতি ফাইলে কতগুলো কন্টাক্ট থাকবে?**\n", reply_markup=ForceReply(True))
         elif step == 3:
             try:
                 limit = int(text)
