@@ -1,12 +1,12 @@
 import os, asyncio, threading
 from flask import Flask
 from pyrogram import Client, filters
-from pyrogram.types import ReplyKeyboardMarkup
+from pyrogram.types import ReplyKeyboardMarkup, ForceReply
 
-# --- 1. Flask Server (বোটকে অলটাইম সচল রাখতে) ---
+# --- 1. Flask Server (To keep the bot alive) ---
 server = Flask(__name__)
 @server.route('/')
-def ping(): return "Super Fast Bot is Running!", 200
+def ping(): return "Bot is Running!", 200
 
 def run_server():
     port = int(os.environ.get("PORT", 10000))
@@ -17,84 +17,134 @@ api_id = 39509829
 api_hash = "e11187f10974a3416ddf2fc52101a7d9"
 bot_token = os.environ.get("BOT_TOKEN", "8338204876:AAG8Y3F30W115DyG3HkwvTRGkbHayGh43Ss")
 
-# sleep_threshold বাড়ানো হয়েছে যাতে টেলিগ্রামের ছোটখাটো ব্লক বোট নিজেই হ্যান্ডেল করে
-app = Client("vcf_speed_worker", api_id=api_id, api_hash=api_hash, bot_token=bot_token, sleep_threshold=120)
+# sleep_threshold added to handle FloodWait automatically
+app = Client("vcf_pro_bot", api_id=api_id, api_hash=api_hash, bot_token=bot_token, sleep_threshold=60)
+
+user_data = {}
+admin_navy_data = {}
+
+# Main Menu Keyboard
+main_menu = ReplyKeyboardMarkup(
+    [["/to_vcf", "/to_txt", "/admin", "/manual"], 
+     ["/add", "/delete", "/renamectc", "/renamefile"], 
+     ["/merge", "/split", "/count", "/nodup"], 
+     ["/status", "/vip", "/referral", "/help"]],
+    resize_keyboard=True
+)
 
 # --- 3. Commands ---
 @app.on_message(filters.command("start"))
 async def start(client, message):
     await message.reply_text(
-        f"🚀 **VCF Super-Fast Worker**\n\n"
-        "**দ্রুত কাজ করার নিয়ম:**\n"
-        "১. একটি `.txt` ফাইল পাঠান।\n"
-        "২. ফাইলটির রিপ্লাইয়ে নিচের ফরম্যাটে তথ্য দিন:\n"
-        "`নাম, ফাইল-কোড, কন্টাক্ট-সংখ্যা, ফাইল-সংখ্যা, শুরুর-নম্বর`\n\n"
-        "**উদাহরণ:** `RAKIB, DW, 37, 10, 71`"
+        f"🚀 **AMG ABDUL**\nHello **{message.from_user.first_name}**! Use the menu below to start.", 
+        reply_markup=main_menu
     )
+
+@app.on_message(filters.command("admin"))
+async def admin_navy_start(client, message):
+    uid = message.from_user.id
+    if uid in user_data: del user_data[uid]
+    admin_navy_data[uid] = {"step": 1}
+    await message.reply_text("👤 **Please enter the Admin Number:**", reply_markup=ForceReply(True))
+
+@app.on_message(filters.command("to_vcf"))
+async def ask_file(client, message):
+    await message.reply_text("📩 Please send the contact list in a **.txt** file.")
 
 @app.on_message(filters.document)
 async def handle_document(client, message):
-    if message.document.file_name.endswith(".txt"):
-        await message.reply_text(f"✅ ফাইল পাওয়া গেছে: `{message.document.file_name}`\nএখন রিপ্লাই দিন।")
-    else:
-        await message.reply_text("❌ শুধু .txt ফাইল পাঠান।")
+    file_path = await message.download()
+    user_data[message.from_user.id] = {'file_path': file_path, 'step': 1}
+    await message.reply_text("⚙️ File received! Type /done to start conversion.")
 
-# --- 4. High-Speed Processing ---
-@app.on_message(filters.reply & filters.text)
-async def process_vcf(client, message):
-    if not message.reply_to_message or not message.reply_to_message.document:
+@app.on_message(filters.command("done"))
+async def start_done(client, message):
+    uid = message.from_user.id
+    if uid in user_data:
+        user_data[uid]['step'] = 2
+        await message.reply_text("📝 Enter a **Name** to save contacts as:", reply_markup=ForceReply(True))
+
+# --- 4. Special Reply Handler ---
+@app.on_message(filters.reply & filters.text & ~filters.command(["start", "admin", "done", "to_vcf"]))
+async def handle_replies(client, message):
+    uid = message.from_user.id
+    text = message.text
+
+    # --- Admin Navy Logic ---
+    if uid in admin_navy_data:
+        step = admin_navy_data[uid]["step"]
+        if step == 1:
+            admin_navy_data[uid]["admin_no"] = text
+            admin_navy_data[uid]["step"] = 2
+            await message.reply_text("📝 **Enter Admin Name:**", reply_markup=ForceReply(True))
+        elif step == 2:
+            admin_navy_data[uid]["admin_name"] = text
+            admin_navy_data[uid]["step"] = 3
+            await message.reply_text("🚢 **Enter Navy Numbers (separated by spaces):**", reply_markup=ForceReply(True))
+        elif step == 3:
+            admin_navy_data[uid]["navy_no"] = text
+            admin_navy_data[uid]["step"] = 4
+            await message.reply_text("📝 **Enter Navy Name:**", reply_markup=ForceReply(True))
+        elif step == 4:
+            admin_navy_data[uid]["navy_name"] = text
+            admin_navy_data[uid]["step"] = 5
+            await message.reply_text("📁 **What should be the File Name?**:", reply_markup=ForceReply(True))
+        elif step == 5:
+            data = admin_navy_data[uid]
+            vcf_content = f"BEGIN:VCARD\nVERSION:3.0\nFN:{data['admin_name']}\nTEL;TYPE=CELL:{data['admin_no']}\nEND:VCARD\n"
+            navy_list = data['navy_no'].replace('\n', ' ').split()
+            for i, num in enumerate(navy_list):
+                vcf_content += f"BEGIN:VCARD\nVERSION:3.0\nFN:{data['navy_name']} {i+1}\nTEL;TYPE=CELL:{num}\nEND:VCARD\n"
+            vcf_path = f"{text}.vcf"
+            with open(vcf_path, "w", encoding='utf-8') as f: f.write(vcf_content)
+            await message.reply_document(vcf_path, caption="✅ Admin Navy file created successfully!")
+            os.remove(vcf_path)
+            del admin_navy_data[uid]
         return
 
-    try:
-        # ইনপুট ডাটা স্প্লিট করা
-        input_data = [i.strip() for i in message.text.split(',')]
-        if len(input_data) < 5:
-            await message.reply_text("❌ ফরম্যাট ভুল! সঠিক উদাহরণ: `RAKIB, DW, 37, 10, 71`")
-            return
-
-        c_name, f_prefix, c_per_file, total_files, start_no = input_data
-        c_per_file, total_files, start_no = int(c_per_file), int(total_files), int(start_no)
-
-        file_path = await message.reply_to_message.download()
-        
-        # দ্রুত ফাইল রিডিং
-        with open(file_path, "r", encoding="utf-8") as f:
-            lines = [l.strip() for l in f.readlines() if l.strip()]
-
-        # সিকোয়েন্স প্রদর্শন
-        sequence_msg = "**Creating Files:**\n"
-        for n in range(start_no, start_no + total_files):
-            sequence_msg += f"🔹 {f_prefix}{n}.vcf\n"
-        status_msg = await message.reply_text(sequence_msg)
-
-        # সুপার ফাস্ট ফাইল জেনারেশন লুপ
-        for i in range(total_files):
-            current_start = i * c_per_file
-            chunk = lines[current_start : current_start + c_per_file]
-            if not chunk: break
-
-            file_no = start_no + i
-            vcf_fn = f"{f_prefix}{file_no}.vcf"
-            
-            # মেমোরি অপ্টিমাইজড রাইটিং
-            vcard_data = []
-            for idx, num in enumerate(chunk):
-                vcard_data.append(f"BEGIN:VCARD\nVERSION:3.0\nFN:{c_name} {current_start + idx + 1}\nTEL;TYPE=CELL:{num}\nEND:VCARD\n")
-            
-            with open(vcf_fn, "w", encoding="utf-8") as vcf:
-                vcf.write("".join(vcard_data))
-            
-            await message.reply_document(vcf_fn)
-            os.remove(vcf_fn)
-            
-            # মিনিমাম সেফটি ডিলে (০.৫ সেকেন্ড)
-            await asyncio.sleep(0.5) 
-
-        os.remove(file_path)
-        await status_msg.edit("✨ **সবগুলো ফাইল সফলভাবে পাঠানো হয়েছে!**")
-
-    except Exception as e:
-        await message.reply_text(f"❌ ভুল হয়েছে: {str(e)}")
+    # --- Standard VCF Split Logic ---
+    if uid in user_data:
+        step = user_data[uid]["step"]
+        if step == 2:
+            user_data[uid]['contact_name'] = text
+            user_data[uid]['step'] = 3
+            await message.reply_text("📁 **Now enter a Name for the File:**", reply_markup=ForceReply(True))
+        elif step == 3:
+            user_data[uid]['file_name'] = text
+            user_data[uid]['step'] = 4
+            await message.reply_text("🔢 **How many contacts per file?** (.., ):", reply_markup=ForceReply(True))
+        elif step == 4:
+            try:
+                limit = int(text)
+                contact_name = user_data[uid]['contact_name']
+                file_name = user_data[uid]['file_name']
+                file_path = user_data[uid]['file_path']
+                
+                with open(file_path, "r", encoding="utf-8") as f:
+                    lines = [l.strip() for l in f.readlines() if l.strip()]
+                
+                for i in range(0, len(lines), limit):
+                    chunk = lines[i:i + limit]
+                    part_no = (i // limit) + 1
+                    vcf_fn = f"{file_name}_{part_no}.vcf"
+                    with open(vcf_fn, "w", encoding="utf-8") as vcf:
+                        for idx, num in enumerate(chunk):
+                            vcf.write(f"BEGIN:VCARD\nVERSION:3.0\nFN:{contact_name} {i + idx + 1}\nTEL;TYPE=CELL:{num}\nEND:VCARD\n")
+                    
+                    await message.reply_document(
+                        vcf_fn, 
+                        caption=f"📄 **File Name:** {file_name}\n✅ **Contact Name:** {contact_name}\n📦 **Part:** {part_no}\n👥 **Count:** {len(chunk)}"
+                    )
+                    os.remove(vcf_fn)
+                    # বিরতি ১.৫ থেকে কমিয়ে ০.৮ সেকেন্ড করা হয়েছে
+                    await asyncio.sleep(0.2) 
+                
+                os.remove(file_path)
+                del user_data[uid]
+                await message.reply_text("✨ Conversion complete!")
+            except ValueError:
+                await message.reply_text("❌ Please enter a valid number.")
+        return
 
 if __name__ == "__main__":
     threading.Thread(target=run_server, daemon=True).start()
